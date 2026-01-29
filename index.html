@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>40Hz 音生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #playButton {
+            background: #667eea;
+            color: white;
+        }
+
+        #playButton:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        #playButton:active {
+            transform: translateY(0);
+        }
+
+        #playButton.playing {
+            background: #f56565;
+        }
+
+        #playButton.playing:hover {
+            background: #e53e3e;
+        }
+
+        .volume-control {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #5568d3;
+            transform: scale(1.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .volume-value {
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>40Hz 音生成器</h1>
+        <p class="subtitle">ガンマ波周波数</p>
+        
+        <div class="controls">
+            <button id="playButton">再生</button>
+            
+            <div class="volume-control">
+                <label for="volumeSlider">音量</label>
+                <input type="range" id="volumeSlider" min="0" max="100" value="30">
+                <div class="volume-value"><span id="volumeValue">30</span>%</div>
+            </div>
+        </div>
+
+        <div class="status" id="status">停止中</div>
+
+        <div class="info">
+            💡 40Hzの音波は「ガンマ波」と呼ばれ、認知機能や集中力に関連するとされています。イヤホンやヘッドホンでの使用を推奨します。
+        </div>
+    </div>
+
+    <script>
+        let audioContext;
+        let oscillator;
+        let gainNode;
+        let isPlaying = false;
+
+        const playButton = document.getElementById('playButton');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+        const status = document.getElementById('status');
+
+        // 音量スライダーの更新
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = e.target.value;
+            volumeValue.textContent = volume;
+            if (gainNode) {
+                gainNode.gain.value = volume / 100;
+            }
+        });
+
+        // 再生/停止ボタン
+        playButton.addEventListener('click', () => {
+            if (!isPlaying) {
+                startSound();
+            } else {
+                stopSound();
+            }
+        });
+
+        function startSound() {
+            // AudioContextの初期化
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // オシレーター（音源）の作成
+            oscillator = audioContext.createOscillator();
+            oscillator.type = 'sine'; // 正弦波
+            oscillator.frequency.value = 40; // 40Hz
+            
+            // ゲインノード（音量調整）の作成
+            gainNode = audioContext.createGain();
+            gainNode.gain.value = volumeSlider.value / 100;
+            
+            // 接続: オシレーター → ゲイン → スピーカー
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // 再生開始
+            oscillator.start();
+            
+            isPlaying = true;
+            playButton.textContent = '停止';
+            playButton.classList.add('playing');
+            status.textContent = '再生中 - 40Hz';
+        }
+
+        function stopSound() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                oscillator = null;
+            }
+            
+            if (gainNode) {
+                gainNode.disconnect();
+                gainNode = null;
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            isPlaying = false;
+            playButton.textContent = '再生';
+            playButton.classList.remove('playing');
+            status.textContent = '停止中';
+        }
+    </script>
+</body>
+</html>
