@@ -154,6 +154,35 @@
             font-size: 14px;
             color: #667eea;
         }
+
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .preset-button {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .preset-button:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -165,6 +194,16 @@
             <button id="playButton">再生</button>
             
             <div class="volume-control">
+                <label for="frequencySlider">周波数</label>
+                <input type="range" id="frequencySlider" min="20" max="20000" value="40" step="1">
+                <div class="volume-value"><span id="frequencyValue">40</span> Hz</div>
+                <div class="preset-buttons">
+                    <button class="preset-button" data-frequency="40">🧠 ガンマ波 (40Hz)</button>
+                    <button class="preset-button" data-frequency="17000">🦟 モスキート音 (17kHz)</button>
+                </div>
+            </div>
+            
+            <div class="volume-control">
                 <label for="volumeSlider">音量</label>
                 <input type="range" id="volumeSlider" min="0" max="100" value="30">
                 <div class="volume-value"><span id="volumeValue">30</span>%</div>
@@ -174,7 +213,9 @@
         <div class="status" id="status">停止中</div>
 
         <div class="info">
-            💡 40Hzの音波は「ガンマ波」と呼ばれ、認知機能や集中力に関連するとされています。イヤホンやヘッドホンでの使用を推奨します。
+            💡 <strong>40Hz</strong>は「ガンマ波」として知られ、認知機能や集中力に関連するとされています。<br><br>
+            🦟 <strong>モスキート音</strong>: 17,000Hz前後の高周波音は「モスキート音」と呼ばれ、主に若年層に聞こえます。年齢とともに高周波の聴覚能力は低下するため、年齢による聴力テストとしても使用されます。<br><br>
+            周波数を変更して様々な音波を試すことができます。イヤホンやヘッドホンでの使用を推奨します。
         </div>
     </div>
 
@@ -185,9 +226,34 @@
         let isPlaying = false;
 
         const playButton = document.getElementById('playButton');
+        const frequencySlider = document.getElementById('frequencySlider');
+        const frequencyValue = document.getElementById('frequencyValue');
         const volumeSlider = document.getElementById('volumeSlider');
         const volumeValue = document.getElementById('volumeValue');
         const status = document.getElementById('status');
+        const presetButtons = document.querySelectorAll('.preset-button');
+
+        // プリセットボタンのクリックイベント
+        presetButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const frequency = button.getAttribute('data-frequency');
+                frequencySlider.value = frequency;
+                frequencyValue.textContent = frequency;
+                if (oscillator) {
+                    oscillator.frequency.value = frequency;
+                    status.textContent = `再生中 - ${frequency}Hz`;
+                }
+            });
+        });
+
+        // 周波数スライダーの更新
+        frequencySlider.addEventListener('input', (e) => {
+            const frequency = e.target.value;
+            frequencyValue.textContent = frequency;
+            if (oscillator) {
+                oscillator.frequency.value = frequency;
+            }
+        });
 
         // 音量スライダーの更新
         volumeSlider.addEventListener('input', (e) => {
@@ -214,7 +280,7 @@
             // オシレーター（音源）の作成
             oscillator = audioContext.createOscillator();
             oscillator.type = 'sine'; // 正弦波
-            oscillator.frequency.value = 40; // 40Hz
+            oscillator.frequency.value = frequencySlider.value; // スライダーの値を使用
             
             // ゲインノード（音量調整）の作成
             gainNode = audioContext.createGain();
@@ -230,7 +296,7 @@
             isPlaying = true;
             playButton.textContent = '停止';
             playButton.classList.add('playing');
-            status.textContent = '再生中 - 40Hz';
+            status.textContent = `再生中 - ${frequencySlider.value}Hz`;
         }
 
         function stopSound() {
